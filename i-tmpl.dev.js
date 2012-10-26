@@ -1,6 +1,9 @@
-;Template = (function() {
+;JTE = (function() {
     /**
-     * Django or Jinja like template engine
+     * @page        http://github.com/Shushik/i-tmpl/
+     * @author      Shushik <silkleopard@yandex.ru>
+     * @version     1.0
+     * @description Django or Jinja like template engine for JavaScript
      *
      * @static
      *
@@ -74,6 +77,12 @@
 
         // Check if the type is available for saving
         if (aliases[type]) {
+            if (aliases[type] == '_tmpl') {
+                value = value
+                        .replace(/([\n\r\t])/g, '')
+                        .replace(/(['])/g, '\\$1');
+            }
+
             Tmpl[aliases[type]] = value;
         }
     };
@@ -150,11 +159,6 @@
 
         // Total number of parsers
         end = parsers.length;
-
-        // Escape some symbols
-        tmpl = tmpl
-               .replace(/([\n\r\t])/g, '')
-               .replace(/(['])/g, '\\$1');
 
         // Iterate the template through the parsers
         for (pos = 0; pos < end; pos++) {
