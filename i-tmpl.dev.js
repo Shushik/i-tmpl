@@ -63,7 +63,7 @@
      * @param  {string}
      * @param  {string}
      * @param  {string|function}
-     * @return {string}
+     * @return {boolean}
      */
     Tmpl.set = function(type, alias, value) {
         var
@@ -83,8 +83,29 @@
                         .replace(/(['])/g, '\\$1');
             }
 
-            Tmpl[aliases[type]] = value;
+            Tmpl[aliases[type]][alias] = value;
+
+            return true;
         }
+
+        return false;
+    };
+
+    /**
+     * Load a template file using syncronous ajax request
+     *
+     * @static
+     *
+     * @this   {Tmpl}
+     * @param  {string}
+     * @return {undefined}
+     */
+    Tmpl.load = function(path) {
+        var
+            pos  = 0,
+            html = '';
+
+        Tmpl._tmpls[path] = html;
     };
 
     /**
@@ -146,6 +167,7 @@
             parse   = '',
             parser  = '',
             parsers = [
+                'extends',
                 'includes',
                 'blocks',
                 'modals',
@@ -153,6 +175,7 @@
                 'vars',
                 'filters',
                 'comments',
+                'sets',
                 'with',
                 'tags'
             ];
@@ -163,7 +186,7 @@
         // Iterate the template through the parsers
         for (pos = 0; pos < end; pos++) {
             parser = Tmpl['_parse4' + parsers[pos]];
-            //
+
             if (parser) {
                 tmpl = parser(tmpl, data);
             }
@@ -205,6 +228,43 @@
     };
 
     /**
+     * Parse {% set %}
+     *
+     * @static
+     * @private
+     *
+     * @this   {Tmpl}
+     * @param  {string}
+     * @param  {object}
+     * @return {string}
+     */
+    Tmpl._parse4sets = function(tmpl, data) {
+        var
+            end  = 0,
+            pos  = 0,
+            set  = '',
+            sets = tmpl.match(/\{%[\s]*set[\s]+([^%]*)%\}/ig);
+
+        //
+        if (sets) {
+            end = sets.length;
+
+            for (pos = 0; pos < end; pos++) {
+                set = sets[pos]
+                      .replace(/(^\{%[\s]*set[\s]+)|([\s]*%\})/ig, '');
+
+                // Replace {% set %}
+                tmpl = tmpl.replace(
+                    sets[pos],
+                    "';var " + set + ";out+='"
+                );
+            }
+        }
+
+        return tmpl;
+    }
+
+    /**
      * Parse {% tag %}
      *
      * @static
@@ -233,7 +293,10 @@
 
                 // Replace {% tag %}
                 if (Tmpl._tags[tag]) {
-                    tmpl = tmpl.replace(tags[pos], "' + Tmpl._tags['" + tag + "'](" + params + ")+'");
+                    tmpl = tmpl.replace(
+                        tags[pos],
+                        "' + Tmpl._tags['" + tag + "'](" + params + ")+'"
+                    );
                 } else {
                     tmpl = tmpl.replace(tags[pos], '');
                 }
@@ -301,6 +364,52 @@
     };
 
     /**
+     * Parse {% with %} and {% endwith %}
+     *
+     * @static
+     * @private
+     *
+     * @this   {Tmpl}
+     * @param  {string}
+     * @param  {object}
+     * @return {string}
+     */
+    Tmpl._parse4with = function(tmpl, data) {
+        var
+            end    = 0,
+            pos    = 0,
+            copy   = '',
+            origin = '',
+            vars   = tmpl.match(/\{%[\s]*with[\s]+[\S]*[\s]+as[\s]+[^\s%]*[\s]*%\}/ig);
+
+        if (vars) {
+            end = vars.length;
+
+            for (pos = 0; pos < end; pos++) {
+                origin = vars[pos]
+                         .replace(/(^\{%[\s]*with[\s]+)|([\s]*%\}$)/ig, '')
+                         .split(/[\s]+as[\s]+/i);
+                copy   = origin[1];
+                origin = origin[0];
+
+                // Replace {% with %}
+                tmpl = tmpl.replace(
+                    vars[pos],
+                    "';(function(){var " + copy + "=" + Tmpl._parse4secondary(origin) + ";out+='"
+                );
+            }
+
+            // Replace {% endwith %}
+            tmpl = tmpl.replace(
+                /\{%[\s]*endwith[\s]*%\}/ig,
+                "';})();out+='"
+            );
+        }
+
+        return tmpl;
+    };
+
+    /**
      * Parse {% block %} and {% endblock %}
      *
      * @todo
@@ -358,6 +467,21 @@
             );
         }
 
+        return tmpl;
+    };
+
+    /**
+     * Parse {% extends %}
+     *
+     * @static
+     * @private
+     *
+     * @this   {Tmpl}
+     * @param  {string}
+     * @param  {object}
+     * @return {string}
+     */
+    Tmpl._parse4extends = function(tmpl, data) {
         return tmpl;
     };
 
@@ -423,52 +547,6 @@
     };
 
     /**
-     * Parse {% with %} and {% endwith %}
-     *
-     * @static
-     * @private
-     *
-     * @this   {Tmpl}
-     * @param  {string}
-     * @param  {object}
-     * @return {string}
-     */
-    Tmpl._parse4with = function(tmpl, data) {
-        var
-            end    = 0,
-            pos    = 0,
-            copy   = '',
-            origin = '',
-            vars   = tmpl.match(/\{%[\s]*with[\s]+[\S]*[\s]+as[\s]+[^\s%]*[\s]*%\}/ig);
-
-        if (vars) {
-            end = vars.length;
-
-            for (pos = 0; pos < end; pos++) {
-                origin = vars[pos]
-                         .replace(/(^\{%[\s]*with[\s]+)|([\s]*%\}$)/ig, '')
-                         .split(/[\s]+as[\s]+/i);
-                copy   = origin[1];
-                origin = origin[0];
-
-                // Replace {% with %}
-                tmpl = tmpl.replace(
-                    vars[pos],
-                    "';(function(){var " + copy + "=" + Tmpl._parse4secondary(origin) + ";out+='"
-                );
-            }
-
-            // Replace {% endwith %}
-            tmpl = tmpl.replace(
-                /\{%[\s]*endwith[\s]*%\}/ig,
-                "';})();out+='"
-            );
-        }
-
-        return tmpl;
-    };
-
-    /**
      * Parse {% if %}, {% elsif %}, {% else %} and {% endif %}
      *
      * @static
@@ -497,8 +575,8 @@
                 tmp   = cond
                         .replace(/^\{%[\s]*|[\s]*%\}$/g, '')
                         .split(/\s/);
-                type  = tmp[0];
-                value = tmp[1];
+                type  = tmp.shift();
+                value = Tmpl._parse4secondary(tmp.join(' '));
 
                 if (type == 'elif') {
                     // Replace {% elsif %}
@@ -596,11 +674,12 @@
      */
     Tmpl._parse4secondary = function(str) {
         return str
-               .replace(/\.(\d*)/, '[$1]')
-               .replace(/ and /ig, '&&')
-               .replace(/ eq /ig, '==')
-               .replace(/ ne /ig, '!=')
-               .replace(/ or /ig,  '||');
+               .replace(/\.(\d+)/, '[$1]')
+               .replace(/[\s]*and[\s]+/ig, '&&')
+               .replace(/[\s]*not[\s]+/ig, '!')
+               .replace(/[\s]*eq[\s]+/ig, '==')
+               .replace(/[\s]*ne[\s]+/ig, '!=')
+               .replace(/[\s]*or[\s]+/ig,  '||');
     }
 
     return Tmpl;
