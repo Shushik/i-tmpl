@@ -130,6 +130,8 @@
         // Check if the template is available
         if (Tmpl._tmpls[path]) {
             tmpl = Tmpl._tmpls[path];
+        } else if (path.match(/\s/)) {
+            tmpl = path;
         } else {
             tmpl = '';
         }
