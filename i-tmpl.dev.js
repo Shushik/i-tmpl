@@ -63,7 +63,7 @@
      * @param  {string}
      * @param  {string}
      * @param  {string|function}
-     * @return {boolean}
+     * @return {boolean|string|function}
      */
     Tmpl.set = function(type, alias, value) {
         var
@@ -85,7 +85,7 @@
 
             Tmpl[aliases[type]][alias] = value;
 
-            return true;
+            return Tmpl[aliases[type]][alias];
         }
 
         return false;
