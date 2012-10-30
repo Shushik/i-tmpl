@@ -464,7 +464,7 @@
                 if (trigger) {
                     tmpl = tmpl.replace(
                         blocks[pos],
-                        "';___out+=___blocks['" + block + "']();___out+='"
+                        "';if(___blocks['" + block + "']){___out+=___blocks['" + block + "']();};___out+='"
                     );
                 } else {
                     tmpl = tmpl.replace(
