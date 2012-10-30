@@ -79,8 +79,9 @@
         if (aliases[type]) {
             if (aliases[type] == '_tmpl') {
                 value = value
-                        .replace(/([\n\r\t])/g, '')
-                        .replace(/(['])/g, '\\$1');
+                        .replace(/([\n\r\t])/g, ' ')
+                        .replace(/\s{2,}/, ' ')
+                        .replace(/(')/g, '\\$1');
             }
 
             Tmpl[aliases[type]][alias] = value;
@@ -137,10 +138,10 @@
         }
 
         // Try to compile template
-        tmpl = Tmpl._compile(tmpl, data);
+        tmpl = Tmpl._compile(path, tmpl, data);
 
         // Try to execute template
-        tmpl = Tmpl._exe(tmpl, data);
+        tmpl = Tmpl._exe(path, tmpl, data);
 
         return tmpl;
     };
@@ -153,11 +154,12 @@
      *
      * @this   {Tmpl}
      * @param  {string}
+     * @param  {string}
      * @param  {object}
      * @param  {boolean}
      * @return {undefined}
      */
-    Tmpl._compile = function(tmpl, data, dry) {
+    Tmpl._compile = function(path, tmpl, data, include) {
         dry  = dry  || false;
         tmpl = tmpl || '';
 
@@ -185,27 +187,37 @@
         // Total number of parsers
         end = parsers.length;
 
+        // Clean blocks object
+        Tmpl._blocks = {};
+
         // Iterate the template through the parsers
         for (pos = 0; pos < end; pos++) {
             parser = Tmpl['_parse4' + parsers[pos]];
 
             if (parser) {
-                tmpl = parser(tmpl, data);
+                tmpl = parser(path, tmpl, data);
             }
         }
 
         // Compile a template variables
-        for (alias in data) {
-            vars += alias + "=data['" + alias + "'],";
+        if (!include) {
+            for (alias in data) {
+                vars += alias + "=data['" + alias + "'],";
+            }
         }
 
-        // Don`t eval the template if it was called by the include
-        if (dry) {
-            return tmpl;
-        }
-
-        // The final code
-        return ";(function(){var " + vars + "out='" + tmpl + "';return out;})();"
+        // Give the final compiled code
+        return (include ? "'" : "") +
+               ";(function(path){" +
+               (include ? "" : "var " + vars + "___out='',___blocks={};") +
+                "try {" +
+                    "___out+='" + tmpl + "';" +
+                "}catch(exception){" +
+                    "___out='';" +
+                "}" +
+                "return ___out;" +
+               "})('" + path + "');" +
+               (include ? "___out+='" : "");
     };
 
     /**
@@ -216,14 +228,19 @@
      *
      * @this   {Tmpl}
      * @param  {string}
+     * @param  {string}
      * @param  {object}
      * @return {undefined}
      */
-    Tmpl._exe = function(tmpl, data) {
+    Tmpl._exe = function(path, tmpl, data) {
         try {
             tmpl = eval(tmpl);
         } catch (exception) {
-            return '';
+            if (Tmpl.dev) {
+                throw exception;
+            } else {
+                return '';
+            }
         }
 
         return tmpl;
@@ -237,10 +254,11 @@
      *
      * @this   {Tmpl}
      * @param  {string}
+     * @param  {string}
      * @param  {object}
      * @return {string}
      */
-    Tmpl._parse4sets = function(tmpl, data) {
+    Tmpl._parse4sets = function(path, tmpl, data) {
         var
             end  = 0,
             pos  = 0,
@@ -258,7 +276,7 @@
                 // Replace {% set %}
                 tmpl = tmpl.replace(
                     sets[pos],
-                    "';var " + set + ";out+='"
+                    "';var " + set + ";___out+='"
                 );
             }
         }
@@ -274,10 +292,11 @@
      *
      * @this   {Tmpl}
      * @param  {string}
+     * @param  {string}
      * @param  {object}
      * @return {string}
      */
-    Tmpl._parse4tags = function(tmpl, data) {
+    Tmpl._parse4tags = function(path, tmpl, data) {
         var
             end    = 0,
             pos    = 0,
@@ -316,17 +335,18 @@
      *
      * @this   {Tmpl}
      * @param  {string}
+     * @param  {string}
      * @param  {object}
      * @return {string}
      */
-    Tmpl._parse4vars = function(tmpl, data) {
+    Tmpl._parse4vars = function(path, tmpl, data) {
         var
             fend    = 0,
             fpos    = 0,
             vend    = 0,
             vpos    = 0,
             outb    = "';try{out+=",
-            oute    = "}catch(e){};out+='",
+            oute    = "}catch(e){};___out+='",
             alias   = '',
             filter  = '',
             vars    = tmpl.match(/\{\{[\s]*[^\s}]*[\s]*\}\}/g),
@@ -373,10 +393,11 @@
      *
      * @this   {Tmpl}
      * @param  {string}
+     * @param  {string}
      * @param  {object}
      * @return {string}
      */
-    Tmpl._parse4with = function(tmpl, data) {
+    Tmpl._parse4with = function(path, tmpl, data) {
         var
             end    = 0,
             pos    = 0,
@@ -397,14 +418,14 @@
                 // Replace {% with %}
                 tmpl = tmpl.replace(
                     vars[pos],
-                    "';(function(){var " + copy + "=" + Tmpl._parse4secondary(origin) + ";out+='"
+                    "';(function(){var " + copy + "=" + Tmpl._parse4secondary(origin) + ";___out+='"
                 );
             }
 
             // Replace {% endwith %}
             tmpl = tmpl.replace(
                 /\{%[\s]*endwith[\s]*%\}/ig,
-                "';})();out+='"
+                "';})();___out+='"
             );
         }
 
@@ -412,18 +433,53 @@
     };
 
     /**
-     * Parse {% block %} and {% endblock %}
+     * Parse {% block %} and {% endblock %} for {% include %}
      *
-     * @todo
      * @static
      * @private
      *
      * @this   {Tmpl}
      * @param  {string}
+     * @param  {string}
      * @param  {object}
      * @return {string}
      */
-    Tmpl._parse4blocks = function(tmpl, data) {
+    Tmpl._parse4blocks = function(path, tmpl, data) {
+        var
+            trigger = false,
+            end     = 0,
+            pos     = 0,
+            block   = '',
+            blocks  = tmpl.match(/\{%[\s]*block[\s]+[\w\d_\-]+[\s]*%\}(\{%[\s]*endblock[\s]*%\})?/ig);
+
+        if (blocks) {
+            end = blocks.length;
+
+            for (pos = 0; pos < end; pos++) {
+                block   = blocks[pos];
+                trigger = block.match('endblock') ? true : false;
+                block   = block
+                          .replace(/(^\{%[\s]*block[\s]+)|([\s]*%\}[\s\S]*)/ig, '');
+
+                if (trigger) {
+                    tmpl = tmpl.replace(
+                        blocks[pos],
+                        "';___out+=___blocks['" + block + "']();___out+='"
+                    );
+                } else {
+                    tmpl = tmpl.replace(
+                        blocks[pos],
+                        "';___blocks['" + block + "']=function(){var ___out='"
+                    );
+                }
+            }
+
+            tmpl = tmpl.replace(
+                /\{%[\s]*endblock[\s]*%\}/ig,
+                "';return ___out;};___out+='"
+            );
+        }
+
         return tmpl;
     };
 
@@ -435,9 +491,11 @@
      *
      * @this   {Tmpl}
      * @param  {string}
+     * @param  {string}
+     * @param  {object}
      * @return {string}
      */
-    Tmpl._parse4filters = function(tmpl, data) {
+    Tmpl._parse4filters = function(path, tmpl, data) {
         var
             end     = 0,
             pos     = 0,
@@ -455,7 +513,7 @@
                 if (Tmpl._filters[filter]) {
                     tmpl = tmpl.replace(
                         filters[pos],
-                        "';out+=Tmpl._filters['" + filter + "']('"
+                        "';___out+=Tmpl._filters['" + filter + "']('"
                     );
                 } else {
                     tmpl = tmpl.replace(filters[pos], '');
@@ -465,7 +523,7 @@
             // Replace {% endfilter %}
             tmpl = tmpl.replace(
                 /\{%[\s]*endfilter[\s]*%\}/ig,
-                "');out+='"
+                "');___out+='"
             );
         }
 
@@ -480,10 +538,11 @@
      *
      * @this   {Tmpl}
      * @param  {string}
+     * @param  {string}
      * @param  {object}
      * @return {string}
      */
-    Tmpl._parse4extends = function(tmpl, data) {
+    Tmpl._parse4extends = function(path, tmpl, data) {
         return tmpl;
     };
 
@@ -495,13 +554,14 @@
      *
      * @this   {Tmpl}
      * @param  {string}
+     * @param  {string}
      * @param  {object}
      * @return {string}
      */
-    Tmpl._parse4comments = function(tmpl, data) {
+    Tmpl._parse4comments = function(path, tmpl, data) {
         tmpl = tmpl
                .replace(/(\{#)|(\{%[\s]*comment[\s]*%\})/g, "';/*")
-               .replace(/(#\})|(\{%[\s]*endcomment[\s]*%\})/, "*/out+='");
+               .replace(/(#\})|(\{%[\s]*endcomment[\s]*%\})/, "*/___out+='");
 
         return tmpl;
     }
@@ -514,10 +574,11 @@
      *
      * @this   {Tmpl}
      * @param  {string}
+     * @param  {string}
      * @param  {object}
      * @return {string}
      */
-    Tmpl._parse4includes = function(tmpl, data) {
+    Tmpl._parse4includes = function(path, tmpl, data) {
         var
             end      = 0,
             pos      = 0,
@@ -539,7 +600,7 @@
                 if (Tmpl._tmpls[alias]) {
                     tmpl = tmpl.replace(
                         found,
-                        Tmpl._compile(Tmpl._tmpls[alias], data, true)
+                        Tmpl._compile(alias, Tmpl._tmpls[alias], data, true)
                     );
                 }
             }
@@ -556,10 +617,11 @@
      *
      * @this   {Tmpl}
      * @param  {string}
+     * @param  {string}
      * @param  {object}
      * @return {string}
      */
-    Tmpl._parse4modals = function(tmpl, data) {
+    Tmpl._parse4modals = function(path, tmpl, data) {
         var
             end   = 0,
             pos   = 0,
@@ -584,21 +646,21 @@
                     // Replace {% elsif %}
                     tmpl = tmpl.replace(
                            cond,
-                           "';}else if(" + Tmpl._parse4secondary(value) + "){out+='"
+                           "';}else if(" + Tmpl._parse4secondary(value) + "){___out+='"
                     );
                 } else {
                     // Replace {% if %}
                     tmpl = tmpl.replace(
                         cond,
-                        "';if(" + Tmpl._parse4secondary(value) + "){out+='"
+                        "';if(" + Tmpl._parse4secondary(value) + "){___out+='"
                     );
                 }
             }
 
             // Replace {% else %} and {% endif %}
             tmpl = tmpl
-                   .replace(/\{%[\s]*else[\s]*%\}/ig,  "';}else{out+='")
-                   .replace(/\{%[\s]*endif[\s]*%\}/ig, "';}out+='");
+                   .replace(/\{%[\s]*else[\s]*%\}/ig,  "';}else{___out+='")
+                   .replace(/\{%[\s]*endif[\s]*%\}/ig, "';}___out+='");
         }
 
         return tmpl;
@@ -612,10 +674,11 @@
      *
      * @this   {Tmpl}
      * @param  {string}
+     * @param  {string}
      * @param  {object}
-     * @return {boolean|string}
+     * @return {string}
      */
-    Tmpl._parse4cicles = function(tmpl, data) {
+    Tmpl._parse4cicles = function(path, tmpl, data) {
         var
             end   = 0,
             pos   = 0,
@@ -646,7 +709,7 @@
                         "for(alias in " + hash + "){" +
                             "if(" + hash + ".hasOwnProperty(alias)){" +
                                 value + "=" + hash + "[alias];" +
-                                "out+='"
+                                "___out+='"
 
                 );
             }
@@ -657,7 +720,7 @@
                             "';" +
                         "}" +
                     "}" +
-                "})();out+='"
+                "})();___out+='"
             );
         }
 

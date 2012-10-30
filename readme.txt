@@ -307,3 +307,15 @@
     <code>
         {% tag_name param_1 param_2 param_n %}
     </code>
+
+    9. Block usage
+
+    <code>
+        {# Define block «rainbow_dash» #}
+        {% block rainbow_dash %}
+            Some block content
+        {% endblock %}
+
+        {# Use block «rainbow_dash» #}
+        {% block rainbow_dash %}{% endblock %}
+    </code>
