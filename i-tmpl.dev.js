@@ -30,6 +30,7 @@
      * List of tags functions
      *
      * @static
+     * @private
      *
      * @value {object}
      */
@@ -175,7 +176,7 @@
                 'includes',
                 'blocks',
                 'modals',
-                'cicles',
+                'loops',
                 'vars',
                 'filters',
                 'comments',
@@ -208,15 +209,15 @@
 
         // Give the final compiled code
         return (include ? "'" : "") +
-               ";(function(path){" +
+               ";(function(___path){" +
                (include ? "" : "var " + vars + "___out='',___blocks={};") +
-                "try {" +
-                    "___out+='" + tmpl + "';" +
-                "}catch(exception){" +
-                    "___out='';" +
-                "}" +
-                "return ___out;" +
-               "})('" + path + "');" +
+               "try {" +
+                   "___out+='" + tmpl + "';" +
+               "}catch(exception){" +
+                   "___out='';" +
+               "}" +
+               "return ___out;" +
+               "})('" + path + "',data);" +
                (include ? "___out+='" : "");
     };
 
@@ -345,7 +346,7 @@
             fpos    = 0,
             vend    = 0,
             vpos    = 0,
-            outb    = "';try{out+=",
+            outb    = "';try{___out+=",
             oute    = "}catch(e){};___out+='",
             alias   = '',
             filter  = '',
@@ -477,6 +478,67 @@
             tmpl = tmpl.replace(
                 /\{%[\s]*endblock[\s]*%\}/ig,
                 "';return ___out;};___out+='"
+            );
+        }
+
+        return tmpl;
+    };
+
+    /**
+     * Parse {% for %} and {% endfor %}
+     *
+     * @static
+     * @private
+     *
+     * @this   {Tmpl}
+     * @param  {string}
+     * @param  {string}
+     * @param  {object}
+     * @return {string}
+     */
+    Tmpl._parse4loops = function(path, tmpl, data) {
+        var
+            end   = 0,
+            pos   = 0,
+            cond  = '',
+            hash  = '',
+            value = '',
+            tmp   = [],
+            fors  = tmpl.match(/\{%[\s]*for[\s]*([^%]*)[\s]*in[\s]([^%]*)[\s]*?%\}/ig);
+
+        if (fors) {
+            end = fors.length;
+
+            for (pos = 0; pos < end; pos++) {
+                cond  = fors[pos];
+                tmp   = cond
+                        .replace(/^\{%[\s]*|[\s]*%\}$/g, '')
+                        .split(/\s/);
+                hash  = tmp[3];
+                value = tmp[1];
+
+                // Replace {% for %}
+                tmpl = tmpl.replace(
+                    fors[pos],
+                    "';(function(){" +
+                        "var " +
+                            "___alias=''," +
+                            value + "=null;" +
+                        "for(___alias in " + hash + "){" +
+                            "if(" + hash + ".hasOwnProperty(___alias)){" +
+                                value + "=" + hash + "[___alias];" +
+                                "___out+='"
+
+                );
+            }
+
+            // Replace {% endfor %}
+            tmpl = tmpl.replace(
+                /\{%[\s]*endfor[\s]*%\}/ig,
+                            "';" +
+                        "}" +
+                    "}" +
+                "})();___out+='"
             );
         }
 
@@ -661,67 +723,6 @@
             tmpl = tmpl
                    .replace(/\{%[\s]*else[\s]*%\}/ig,  "';}else{___out+='")
                    .replace(/\{%[\s]*endif[\s]*%\}/ig, "';}___out+='");
-        }
-
-        return tmpl;
-    };
-
-    /**
-     * Parse {% for %} and {% endfor %}
-     *
-     * @static
-     * @private
-     *
-     * @this   {Tmpl}
-     * @param  {string}
-     * @param  {string}
-     * @param  {object}
-     * @return {string}
-     */
-    Tmpl._parse4cicles = function(path, tmpl, data) {
-        var
-            end   = 0,
-            pos   = 0,
-            cond  = '',
-            hash  = '',
-            value = '',
-            tmp   = [],
-            fors  = tmpl.match(/\{%[\s]*for[\s]*([^%]*)[\s]*in[\s]([^%]*)[\s]*?%\}/ig);
-
-        if (fors) {
-            end = fors.length;
-
-            for (pos = 0; pos < end; pos++) {
-                cond  = fors[pos];
-                tmp   = cond
-                        .replace(/^\{%[\s]*|[\s]*%\}$/g, '')
-                        .split(/\s/);
-                hash  = tmp[3];
-                value = tmp[1];
-
-                // Replace {% for %}
-                tmpl = tmpl.replace(
-                    fors[pos],
-                    "';(function(){" +
-                        "var " +
-                            "alias=''," +
-                            value + "=null;" +
-                        "for(alias in " + hash + "){" +
-                            "if(" + hash + ".hasOwnProperty(alias)){" +
-                                value + "=" + hash + "[alias];" +
-                                "___out+='"
-
-                );
-            }
-
-            // Replace {% endfor %}
-            tmpl = tmpl.replace(
-                /\{%[\s]*endfor[\s]*%\}/ig,
-                            "';" +
-                        "}" +
-                    "}" +
-                "})();___out+='"
-            );
         }
 
         return tmpl;
