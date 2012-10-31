@@ -190,6 +190,9 @@
         // Clean blocks object
         Tmpl._blocks = {};
 
+        //
+        tmpl = Tmpl._parse4blocks4includes(path, tmpl, data);
+
         // Iterate the template through the parsers
         for (pos = 0; pos < end; pos++) {
             parser = Tmpl['_parse4' + parsers[pos]];
@@ -208,7 +211,10 @@
 
         // Give the final compiled code
         return (include ? "'" : "") +
-               ";(function(___path,___data){" +
+               ";(function(" +
+                   "___path" +
+                   (include ? "" : ",___data") +
+                "){" +
                (include ? "" : "var " + vars + "___out='',___blocks={};") +
                "try {" +
                    "___out+='" + tmpl + "';" +
@@ -302,6 +308,7 @@
             pos    = 0,
             tag    = '',
             params = '',
+            endtag = '',
             tags   = tmpl.match(/\{%[\s]*([_\w\d]*)(([\s]*[^\s%]*)*)[\s]*%\}/g);
 
         if (tags) {
@@ -311,13 +318,24 @@
                 tag    = tags[pos].replace(/\{% ?| ?%\}/g, '').split(' ');
                 params = tag.slice(1).join(',');
                 tag    = tag.shift();
+                endtag = new RegExp('\\{%[\\s]*end' + tag + '[\\s]*%\\}', 'i');
 
                 // Replace {% tag %}
                 if (Tmpl._tags[tag]) {
-                    tmpl = tmpl.replace(
-                        tags[pos],
-                        "' + Tmpl._tags['" + tag + "'](" + params + ")+'"
-                    );
+                    if (!params && tmpl.match(endtag)) {
+                        tmpl = tmpl.replace(
+                            tags[pos],
+                            "'+Tmpl._tags['" + tag +"']('"
+                        ).replace(
+                            endtag,
+                            "')+'"
+                        );
+                    } else {
+                        tmpl = tmpl.replace(
+                            tags[pos],
+                            "'+Tmpl._tags['" + tag + "'](" + params + ")+'"
+                        );
+                    }
                 } else {
                     tmpl = tmpl.replace(tags[pos], '');
                 }
