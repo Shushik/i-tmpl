@@ -12,7 +12,7 @@
      * @param  {object}
      * @return {string}
      */
-     function
+    function
         Tmpl(path, data) {
             return Tmpl.render(path, data);
         }
@@ -174,7 +174,6 @@
             parsers = [
                 'extends',
                 'includes',
-                'blocks',
                 'modals',
                 'loops',
                 'vars',
@@ -203,13 +202,13 @@
         // Compile a template variables
         if (!include) {
             for (alias in data) {
-                vars += alias + "=data['" + alias + "'],";
+                vars += alias + "=___data['" + alias + "'],";
             }
         }
 
         // Give the final compiled code
         return (include ? "'" : "") +
-               ";(function(___path){" +
+               ";(function(___path,___data){" +
                (include ? "" : "var " + vars + "___out='',___blocks={};") +
                "try {" +
                    "___out+='" + tmpl + "';" +
@@ -434,7 +433,7 @@
     };
 
     /**
-     * Parse {% block %} and {% endblock %} for {% include %}
+     * 
      *
      * @static
      * @private
@@ -445,12 +444,13 @@
      * @param  {object}
      * @return {string}
      */
-    Tmpl._parse4blocks = function(path, tmpl, data) {
+    Tmpl._parse4blocks4includes = function(path, tmpl, data) {
         var
             trigger = false,
             end     = 0,
             pos     = 0,
             block   = '',
+            total   = '',
             blocks  = tmpl.match(/\{%[\s]*block[\s]+[\w\d_\-]+[\s]*%\}(\{%[\s]*endblock[\s]*%\})?/ig);
 
         if (blocks) {
@@ -462,15 +462,15 @@
                 block   = block
                           .replace(/(^\{%[\s]*block[\s]+)|([\s]*%\}[\s\S]*)/ig, '');
 
-                if (trigger) {
+                if (!trigger) {
                     tmpl = tmpl.replace(
                         blocks[pos],
-                        "';if(___blocks['" + block + "']){___out+=___blocks['" + block + "']();};___out+='"
+                        "';___blocks['" + block + "']=function(){var ___out='"
                     );
                 } else {
                     tmpl = tmpl.replace(
                         blocks[pos],
-                        "';___blocks['" + block + "']=function(){var ___out='"
+                        "';if(___blocks['" + block + "']){___out+=___blocks['" + block + "']();};___out+='"
                     );
                 }
             }
@@ -481,6 +481,22 @@
             );
         }
 
+        return tmpl;
+    };
+
+    /**
+     * 
+     *
+     * @static
+     * @private
+     *
+     * @this   {Tmpl}
+     * @param  {string}
+     * @param  {string}
+     * @param  {object}
+     * @return {string}
+     */
+    Tmpl._parse4blocks4extends = function(path, tmpl, data) {
         return tmpl;
     };
 
@@ -662,7 +678,12 @@
                 if (Tmpl._tmpls[alias]) {
                     tmpl = tmpl.replace(
                         found,
-                        Tmpl._compile(alias, Tmpl._tmpls[alias], data, true)
+                        Tmpl._compile(
+                            alias,
+                            Tmpl._parse4blocks4includes(alias, Tmpl._tmpls[alias], data),
+                            data,
+                            true
+                        )
                     );
                 }
             }
