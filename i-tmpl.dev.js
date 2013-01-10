@@ -161,7 +161,6 @@
      * @return {undefined}
      */
     Tmpl._compile = function(path, tmpl, data, include) {
-        dry  = dry  || false;
         tmpl = tmpl || '';
 
         var
@@ -183,6 +182,9 @@
                 'with',
                 'tags'
             ];
+
+        // Escape the single quotes
+        tmpl = tmpl.replace(/'/g, "\\'");
 
         // Total number of parsers
         end = parsers.length;
@@ -557,9 +559,33 @@
                     "';(function(){" +
                         "var " +
                             "___alias=''," +
+                            "___type=(" + hash + " instanceof Array?'array':'object')," +
+                            "___length=(" + hash + " instanceof Array?" + hash + ".length:0)," +
+                            "___end=length?length-1:0," +
+                            "___pos=0," +
+                            "loop={" +
+                                "last:false," +
+                                "first:true," +
+                                "index:1," +
+                                "index0:0" +
+                            "}," +
+                            "forloop={" +
+                                "last:false," +
+                                "first:true," +
+                                "counter:1," +
+                                "counter0:0" +
+                            "}," +
                             value + "=null;" +
                         "for(___alias in " + hash + "){" +
-                            "if(" + hash + ".hasOwnProperty(___alias)){" +
+                            "if(" + hash + "[___alias] &&" + hash + ".hasOwnProperty(___alias)){" +
+                                "if(___pos>0){" +
+                                    "loop.first=false;" +
+                                    "forloop.first=false;" +
+                                "}" +
+                                "if(___pos==___end){" +
+                                    "loop.last=true;" +
+                                    "forloop.last=true;" +
+                                "}" +
                                 value + "=" + hash + "[___alias];" +
                                 "___out+='"
 
@@ -570,6 +596,11 @@
             tmpl = tmpl.replace(
                 /\{%[\s]*endfor[\s]*%\}/ig,
                             "';" +
+                            "___pos++;" +
+                            "loop.index=___pos + 1;" +
+                            "loop.index0=___pos;" +
+                            "forloop.counter=___pos + 1;" +
+                            "forloop.counter0=___pos;" +
                         "}" +
                     "}" +
                 "})();___out+='"
@@ -737,9 +768,9 @@
 
             for (pos = 0; pos < end; pos++) {
                 cond  = ifs[pos];
-                tmp   = cond
-                        .replace(/^\{%[\s]*|[\s]*%\}$/g, '')
-                        .split(/\s/);
+                tmp   = cond.
+                        replace(/^\{%[\s]*|[\s]*%\}$/g, '').
+                        split(/\s/);
                 type  = tmp.shift();
                 value = Tmpl._parse4secondary(tmp.join(' '));
 
@@ -759,9 +790,9 @@
             }
 
             // Replace {% else %} and {% endif %}
-            tmpl = tmpl
-                   .replace(/\{%[\s]*else[\s]*%\}/ig,  "';}else{___out+='")
-                   .replace(/\{%[\s]*endif[\s]*%\}/ig, "';}___out+='");
+            tmpl = tmpl.
+                   replace(/\{%[\s]*else[\s]*%\}/ig,  "';}else{___out+='").
+                   replace(/\{%[\s]*endif[\s]*%\}/ig, "';}___out+='");
         }
 
         return tmpl;
@@ -778,13 +809,14 @@
      * @return {string}
      */
     Tmpl._parse4secondary = function(str) {
-        return str
-               .replace(/\.(\d+)/, '[$1]')
-               .replace(/[\s]*and[\s]+/ig, '&&')
-               .replace(/[\s]*not[\s]+/ig, '!')
-               .replace(/[\s]*eq[\s]+/ig, '==')
-               .replace(/[\s]*ne[\s]+/ig, '!=')
-               .replace(/[\s]*or[\s]+/ig,  '||');
+        return str.
+               replace(/\.(\d+)/, '[$1]').
+               replace(/[\s]*and[\s]+/ig, '&&').
+               replace(/[\s]*not[\s]+/ig, '!').
+               replace(/[\s]*is[\s]+/ig, '==').
+               replace(/[\s]*eq[\s]+/ig, '==').
+               replace(/[\s]*ne[\s]+/ig, '!=').
+               replace(/[\s]*or[\s]+/ig,  '||');
     }
 
     return Tmpl;
