@@ -561,7 +561,6 @@
                     "';(function(){" +
                         "var " +
                             "___alias=''," +
-                            "___type=(" + hash + " instanceof Array?'array':'object')," +
                             "___length=(" + hash + " instanceof Array?" + hash + ".length:0)," +
                             "___end=___length?___length-1:0," +
                             "___pos=0," +
@@ -569,13 +568,15 @@
                                 "last:false," +
                                 "first:true," +
                                 "index:1," +
-                                "index0:0" +
+                                "index0:0," +
+                                "length:___length" +
                             "}," +
                             "forloop={" +
                                 "last:false," +
                                 "first:true," +
                                 "counter:1," +
-                                "counter0:0" +
+                                "counter0:0," +
+                                "length:___length" +
                             "}," +
                             value + "=null;" +
                         "for(___alias in " + hash + "){" +

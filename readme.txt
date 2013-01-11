@@ -254,6 +254,21 @@
         </ul>
     </code>
 
+    You can use the forloop (Django style) and loop (Jinja style) variables
+    inside of cycle. These objects have the following properties:
+
+    — loop.first  — true if the current iteration is first;
+    — loop.last   — true if the current iteration is last (arrays only);
+    — loop.length — a number of items in a stack (arrays only);
+    — loop.index  — a number of the current iteration starting with 1;
+    — loop.index0 — a number of the current iteration starting with 0.
+
+    — forloop.first    — true if the current iteration is the first;
+    — forloop.last     — true if the current iteration is the last (arrays only);
+    — forloop.length   — a number of items in a stack (for arrays only);
+    — forloop.counter  — a number of the current iteration starting with 1;
+    — forloop.counter0 — a number of the current iteration starting with 0.
+
 
     4. Modal
 
