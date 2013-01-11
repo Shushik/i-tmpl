@@ -479,8 +479,10 @@
             for (pos = 0; pos < end; pos++) {
                 block   = blocks[pos];
                 trigger = block.match('endblock') ? true : false;
-                block   = block
-                          .replace(/(^\{%[\s]*block[\s]+)|([\s]*%\}[\s\S]*)/ig, '');
+                block   = block.replace(
+                    /(^\{%[\s]*block[\s]+)|([\s]*%\}[\s\S]*)/ig,
+                    ''
+                );
 
                 if (!trigger) {
                     tmpl = tmpl.replace(
@@ -561,7 +563,7 @@
                             "___alias=''," +
                             "___type=(" + hash + " instanceof Array?'array':'object')," +
                             "___length=(" + hash + " instanceof Array?" + hash + ".length:0)," +
-                            "___end=length?length-1:0," +
+                            "___end=___length?___length-1:0," +
                             "___pos=0," +
                             "loop={" +
                                 "last:false," +
