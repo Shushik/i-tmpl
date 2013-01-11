@@ -263,8 +263,8 @@
     — loop.index  — a number of the current iteration starting with 1;
     — loop.index0 — a number of the current iteration starting with 0.
 
-    — forloop.first    — true if the current iteration is the first;
-    — forloop.last     — true if the current iteration is the last (arrays only);
+    — forloop.first    — true if the current iteration is first;
+    — forloop.last     — true if the current iteration is last (arrays only);
     — forloop.length   — a number of items in a stack (for arrays only);
     — forloop.counter  — a number of the current iteration starting with 1;
     — forloop.counter0 — a number of the current iteration starting with 0.
