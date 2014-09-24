@@ -1,826 +1,434 @@
-;JTE = (function() {
+/**
+ * Django or Jinja like template engine for JavaScript
+ *
+ * @page    http://github.com/Shushik/i-tmpl/
+ * @author  Shushik <silkleopard@yandex.ru>
+ * @version 2.0
+ */
+function
     /**
-     * @page        http://github.com/Shushik/i-tmpl/
-     * @author      Shushik <silkleopard@yandex.ru>
-     * @version     1.0
-     * @description Django or Jinja like template engine for JavaScript
+     * @constructor
      *
-     * @static
+     * @param {string} code
+     * @param {object} vars
      *
-     * @this   {Tmpl}
-     * @param  {string}
-     * @param  {object}
-     * @return {string}
+     * @return {object}
      */
-    function
-        Tmpl(path, data) {
-            return Tmpl.render(path, data);
-        }
-
-    /**
-     * Indicator of development version
-     *
-     * @static
-     *
-     * @value {boolean}
-     */
-    Tmpl.dev = false;
-
-    /**
-     * List of tags functions
-     *
-     * @static
-     * @private
-     *
-     * @value {object}
-     */
-    Tmpl._tags = {};
-
-    /**
-     * List of templates
-     *
-     * @static
-     * @private
-     *
-     * @value {object}
-     */
-    Tmpl._tmpls = {};
-
-    /**
-     * List of filter functions
-     *
-     * @static
-     *
-     * @value {object}
-     */
-    Tmpl._filters = {};
-
-    /**
-     * Set template, filter or tag
-     *
-     * @static
-     *
-     * @this   {Tmpl}
-     * @param  {string}
-     * @param  {string}
-     * @param  {string|function}
-     * @return {boolean|string|function}
-     */
-    Tmpl.set = function(type, alias, value) {
-        var
-            aliases = {
-                tag      : '_tags',
-                tpl      : '_tmpls',
-                tmpl     : '_tmpls',
-                filter   : '_filters',
-                template : '_tmpls'
-            };
-
-        // Check if the type is available for saving
-        if (aliases[type]) {
-            if (aliases[type] == '_tmpl') {
-                value = value
-                        .replace(/([\n\r\t])/g, ' ')
-                        .replace(/\s{2,}/, ' ')
-                        .replace(/(')/g, '\\$1');
-            }
-
-            Tmpl[aliases[type]][alias] = value;
-
-            return Tmpl[aliases[type]][alias];
-        }
-
-        return false;
-    };
-
-    /**
-     * Load a template file using syncronous ajax request
-     *
-     * @static
-     *
-     * @this   {Tmpl}
-     * @param  {string}
-     * @return {undefined}
-     */
-    Tmpl.load = function(path) {
-        var
-            pos  = 0,
-            html = '';
-
-        Tmpl._tmpls[path] = html;
-    };
-
-    /**
-     * Render a given template using a given data object
-     *
-     * @static
-     *
-     * @this   {Tmpl}
-     * @param  {string}
-     * @param  {object}
-     * @return {string}
-     */
-    Tmpl.render = function(path, data) {
-        path = path || '';
-        data = data || {};
-
-        var
-            tmpl     = '',
-            compiled = '',
-            executed = '';
-
-        // Check if the template is available
-        if (Tmpl._tmpls[path]) {
-            tmpl = Tmpl._tmpls[path];
-        } else if (path.match(/\s/)) {
-            tmpl = path;
+    JST(code, vars) {
+        if (this instanceof JST) {
+            this.init(code, vars);
         } else {
-            tmpl = '';
+            return new JST(code, vars).html;
         }
-
-        // Try to compile template
-        tmpl = Tmpl._compile(path, tmpl, data);
-
-        // Try to execute template
-        tmpl = Tmpl._exe(path, tmpl, data);
-
-        return tmpl;
-    };
+    }; JST.$ = JST.prototype;
 
     /**
-     * Compile the template
+     * Dev mode indicator
      *
-     * @static
-     * @private
-     *
-     * @this   {Tmpl}
-     * @param  {string}
-     * @param  {string}
-     * @param  {object}
-     * @param  {boolean}
-     * @return {undefined}
+     * @type {string}
      */
-    Tmpl._compile = function(path, tmpl, data, include) {
-        tmpl = tmpl || '';
+    JST.$.dev = false;
 
+    /**
+     * Raw template code
+     *
+     * @type {string}
+     */
+    JST.$.raw = '';
+
+    /**
+     * HTML code ready for use
+     *
+     * @type {string}
+     */
+    JST.$.html = '';
+
+    /**
+     * All available templates
+     *
+     * @type {object}
+     */
+    JST.$.list = {};
+
+    /**
+     * 
+     */
+    JST.$.loop = {};
+
+    /**
+     * All variables for the running template
+     *
+     * @type {object}
+     */
+    JST.$.vars = {};
+
+    /**
+     * Init the module
+     *
+     * @param {string} code
+     * @param {object} vars
+     */
+    JST.$.init = function(code, vars) {
         var
-            pos     = 0,
-            end     = 0,
-            vars    = '',
-            alias   = '',
-            parse   = '',
-            parser  = '',
-            parsers = [
-                'extends',
-                'includes',
-                'modals',
-                'loops',
-                'vars',
-                'filters',
-                'comments',
-                'sets',
-                'with',
-                'tags'
-            ];
+            name = code.substring(0, 50);
 
-        // Escape the single quotes
-        tmpl = tmpl.replace(/'/g, "\\'");
+        // Save a link to the current JST example
+        JST._ = this;
 
-        // Total number of parsers
-        end = parsers.length;
+        // Cache the code
+        this.raw  = this.check(name);
+        this.html = '';
 
-        // Clean blocks object
-        Tmpl._blocks = {};
+        // Cache vars
+        this.vars = typeof vars == 'object' ? vars : {};
 
-        //
-        tmpl = Tmpl._parse4blocks4includes(path, tmpl, data);
-
-        // Iterate the template through the parsers
-        for (pos = 0; pos < end; pos++) {
-            parser = Tmpl['_parse4' + parsers[pos]];
-
-            if (parser) {
-                tmpl = parser(path, tmpl, data);
-            }
-        }
-
-        // Compile a template variables
-        if (!include) {
-            for (alias in data) {
-                vars += alias + "=___data['" + alias + "'],";
-            }
-        }
-
-        // Give the final compiled code
-        return (include ? "'" : "") +
-               ";(function(" +
-                   "___path" +
-                   (include ? "" : ",___data") +
-                "){" +
-               (include ? "" : "var " + vars + "___out='',___blocks={};") +
-               "try {" +
-                   "___out+='" + tmpl + "';" +
-               "}catch(exception){" +
-                   "___out='';" +
-               "}" +
-               "return ___out;" +
-               "})('" + path + "',data);" +
-               (include ? "___out+='" : "");
-    };
+        // Compile and execute template
+        this.compile();
+        this.execute();
+    }
 
     /**
-     * Execute the compiled javascript code
+     * Add a template into the templates list
      *
-     * @static
-     * @private
-     *
-     * @this   {Tmpl}
-     * @param  {string}
-     * @param  {string}
-     * @param  {object}
-     * @return {undefined}
+     * @param {string} name
+     * @param {string} code
      */
-    Tmpl._exe = function(path, tmpl, data) {
+    JST.$.add = JST.add = function(name, code) {
+        JST.$.list[name] = code;
+    }
+
+    /**
+     * Select the code source
+     *
+     * @param {string} name
+     *
+     * @return {string}
+     */
+    JST.$.check = function(name) {
+        var
+            code = '';
+
+        if (this.list[name]) {
+            code = this.list[name];
+        } else if (this.vars[name]) {
+            code = this.vars[name];
+        } else {
+            code = name;
+        }
+
+        return code;
+    }
+
+    /**
+     * Parse and compile the code
+     *
+     * @param {undefined|string}
+     *
+     * @return {string}
+     */
+    JST.$.compile = function(name) {
+        var
+            al0  = '',
+            type = typeof name,
+            code = (type == 'string' ? this.check(name) : this.raw),
+            vars = '';
+
+        // Parse the includes
+        code = this._includes(code);
+        code = this._sets(code);
+
+        // Commit changes
+        if (type == 'undefined') {
+            // Replace unsafe symbols
+            code = code.replace(/(([^{])%([^}]))/g, '$2\\%$3');
+
+            // Create variables code
+            for (al0 in this.vars) {
+                vars += (!vars ? '' : ',') +
+                        al0 + '=JST._.vars[\'' + al0 + '\']';
+            }
+
+            // Parse the all constructions
+            code = this._ifs(code);
+            code = this._vars(code);
+            code = this._fors(code);
+            code = this._comments(code);
+
+            // Create a wrapper code
+            code = ';(function(){var ' + vars + ';' + code;
+            code = code + '\'})();';
+
+            // Save the parsed code
+            this.raw = code;
+        } else {
+            // Create a wrapper code
+            code = '\'+(function(){' + code + '\';})()+\'';
+        }
+
+        return code;
+    }
+
+    /**
+     * Execute the parsed and compiled code
+     */
+    JST.$.execute = function() {
         try {
-            tmpl = eval(tmpl);
-        } catch (exception) {
-            if (Tmpl.dev) {
-                throw exception;
-            } else {
-                return '';
+            // Execute the generated JS-code
+            this.html = eval(this.raw);
+        } catch (exc) {
+            // Show error messages in development mode
+            if (this.dev) {
+                throw exc;
             }
         }
-
-        return tmpl;
-    };
-
-    /**
-     * Parse {% set %}
-     *
-     * @static
-     * @private
-     *
-     * @this   {Tmpl}
-     * @param  {string}
-     * @param  {string}
-     * @param  {object}
-     * @return {string}
-     */
-    Tmpl._parse4sets = function(path, tmpl, data) {
-        var
-            end  = 0,
-            pos  = 0,
-            set  = '',
-            sets = tmpl.match(/\{%[\s]*set[\s]+([^%]*)%\}/ig);
-
-        //
-        if (sets) {
-            end = sets.length;
-
-            for (pos = 0; pos < end; pos++) {
-                set = sets[pos]
-                      .replace(/(^\{%[\s]*set[\s]+)|([\s]*%\})/ig, '');
-
-                // Replace {% set %}
-                tmpl = tmpl.replace(
-                    sets[pos],
-                    "';var " + set + ";___out+='"
-                );
-            }
-        }
-
-        return tmpl;
     }
 
     /**
-     * Parse {% tag %}
+     * {% if %}, {% elif %}, {% else %} replacement
      *
-     * @static
      * @private
      *
-     * @this   {Tmpl}
-     * @param  {string}
-     * @param  {string}
-     * @param  {object}
+     * @param {string} code
+     *
      * @return {string}
      */
-    Tmpl._parse4tags = function(path, tmpl, data) {
+    JST.$._ifs = function(code) {
         var
-            end    = 0,
-            pos    = 0,
-            tag    = '',
-            params = '',
-            endtag = '',
-            tags   = tmpl.match(/\{%[\s]*([_\w\d]*)(([\s]*[^\s%]*)*)[\s]*%\}/g);
-
-        if (tags) {
-            end = tags.length;
-
-            for (pos = 0; pos < end; pos++) {
-                tag    = tags[pos].replace(/\{% ?| ?%\}/g, '').split(' ');
-                params = tag.slice(1).join(',');
-                tag    = tag.shift();
-                endtag = new RegExp('\\{%[\\s]*end' + tag + '[\\s]*%\\}', 'i');
-
-                // Replace {% tag %}
-                if (Tmpl._tags[tag]) {
-                    if (!params && tmpl.match(endtag)) {
-                        tmpl = tmpl.replace(
-                            tags[pos],
-                            "'+Tmpl._tags['" + tag +"']('"
-                        ).replace(
-                            endtag,
-                            "')+'"
-                        );
-                    } else {
-                        tmpl = tmpl.replace(
-                            tags[pos],
-                            "'+Tmpl._tags['" + tag + "'](" + params + ")+'"
-                        );
-                    }
-                } else {
-                    tmpl = tmpl.replace(tags[pos], '');
-                }
-            }
-        }
-
-        return tmpl;
-    };
-
-    /**
-     * Parse {{ variable }}
-     *
-     * @static
-     * @private
-     *
-     * @this   {Tmpl}
-     * @param  {string}
-     * @param  {string}
-     * @param  {object}
-     * @return {string}
-     */
-    Tmpl._parse4vars = function(path, tmpl, data) {
-        var
-            fend    = 0,
-            fpos    = 0,
-            vend    = 0,
-            vpos    = 0,
-            outb    = "';try{___out+=",
-            oute    = "}catch(e){};___out+='",
-            alias   = '',
-            filter  = '',
-            vars    = tmpl.match(/\{\{[\s]*[^\s}]*[\s]*\}\}/g),
-            filters = [];
-
-        if (vars) {
-            vend = vars.length;
-
-            for (vpos = 0; vpos < vend; vpos++) {
-                alias   = vars[vpos]
-                          .replace(/(^\{\{[\s*])|([\s]*\}\}$)/g, '')
-                          .split('|');
-                filters = alias.slice(1).reverse();
-                alias   = alias[0];
-                fend    = filters.length;
-
-                if (fend) {
-                    for (fpos = 0; fpos < fend; fpos++) {
-                        filter = filters[fpos];
-
-                        if (Tmpl._filters[filter]) {
-                            outb += "Tmpl._filters['" + filter + "'](";
-                            oute = ")" + oute;
-                        }
-                    }
-                }
-
-                // Replace for {{ variable }}
-                tmpl = tmpl.replace(
-                    vars[vpos],
-                    outb + Tmpl._parse4secondary(alias) + oute
-                );
-            }
-        }
-
-        return tmpl;
-    };
-
-    /**
-     * Parse {% with %} and {% endwith %}
-     *
-     * @static
-     * @private
-     *
-     * @this   {Tmpl}
-     * @param  {string}
-     * @param  {string}
-     * @param  {object}
-     * @return {string}
-     */
-    Tmpl._parse4with = function(path, tmpl, data) {
-        var
-            end    = 0,
-            pos    = 0,
-            copy   = '',
-            origin = '',
-            vars   = tmpl.match(/\{%[\s]*with[\s]+[\S]*[\s]+as[\s]+[^\s%]*[\s]*%\}/ig);
-
-        if (vars) {
-            end = vars.length;
-
-            for (pos = 0; pos < end; pos++) {
-                origin = vars[pos]
-                         .replace(/(^\{%[\s]*with[\s]+)|([\s]*%\}$)/ig, '')
-                         .split(/[\s]+as[\s]+/i);
-                copy   = origin[1];
-                origin = origin[0];
-
-                // Replace {% with %}
-                tmpl = tmpl.replace(
-                    vars[pos],
-                    "';(function(){var " + copy + "=" + Tmpl._parse4secondary(origin) + ";___out+='"
-                );
-            }
-
-            // Replace {% endwith %}
-            tmpl = tmpl.replace(
-                /\{%[\s]*endwith[\s]*%\}/ig,
-                "';})();___out+='"
-            );
-        }
-
-        return tmpl;
-    };
-
-    /**
-     * 
-     *
-     * @static
-     * @private
-     *
-     * @this   {Tmpl}
-     * @param  {string}
-     * @param  {string}
-     * @param  {object}
-     * @return {string}
-     */
-    Tmpl._parse4blocks4includes = function(path, tmpl, data) {
-        var
-            trigger = false,
-            end     = 0,
-            pos     = 0,
-            block   = '',
-            total   = '',
-            blocks  = tmpl.match(/\{%[\s]*block[\s]+[\w\d_\-]+[\s]*%\}(\{%[\s]*endblock[\s]*%\})?/ig);
-
-        if (blocks) {
-            end = blocks.length;
-
-            for (pos = 0; pos < end; pos++) {
-                block   = blocks[pos];
-                trigger = block.match('endblock') ? true : false;
-                block   = block.replace(
-                    /(^\{%[\s]*block[\s]+)|([\s]*%\}[\s\S]*)/ig,
-                    ''
-                );
-
-                if (!trigger) {
-                    tmpl = tmpl.replace(
-                        blocks[pos],
-                        "';___blocks['" + block + "']=function(){var ___out='"
-                    );
-                } else {
-                    tmpl = tmpl.replace(
-                        blocks[pos],
-                        "';if(___blocks['" + block + "']){___out+=___blocks['" + block + "']();};___out+='"
-                    );
-                }
-            }
-
-            tmpl = tmpl.replace(
-                /\{%[\s]*endblock[\s]*%\}/ig,
-                "';return ___out;};___out+='"
-            );
-        }
-
-        return tmpl;
-    };
-
-    /**
-     * 
-     *
-     * @static
-     * @private
-     *
-     * @this   {Tmpl}
-     * @param  {string}
-     * @param  {string}
-     * @param  {object}
-     * @return {string}
-     */
-    Tmpl._parse4blocks4extends = function(path, tmpl, data) {
-        return tmpl;
-    };
-
-    /**
-     * Parse {% for %} and {% endfor %}
-     *
-     * @static
-     * @private
-     *
-     * @this   {Tmpl}
-     * @param  {string}
-     * @param  {string}
-     * @param  {object}
-     * @return {string}
-     */
-    Tmpl._parse4loops = function(path, tmpl, data) {
-        var
-            end   = 0,
-            pos   = 0,
-            cond  = '',
-            hash  = '',
-            value = '',
-            tmp   = [],
-            fors  = tmpl.match(/\{%[\s]*for[\s]*([^%]*)[\s]*in[\s]([^%]*)[\s]*?%\}/ig);
-
-        if (fors) {
-            end = fors.length;
-
-            for (pos = 0; pos < end; pos++) {
-                cond  = fors[pos];
-                tmp   = cond
-                        .replace(/^\{%[\s]*|[\s]*%\}$/g, '')
-                        .split(/\s/);
-                hash  = tmp[3];
-                value = tmp[1];
-
-                // Replace {% for %}
-                tmpl = tmpl.replace(
-                    fors[pos],
-                    "';(function(){" +
-                        "var " +
-                            "___alias=''," +
-                            "___length=(" + hash + " instanceof Array?" + hash + ".length:0)," +
-                            "___end=___length?___length-1:0," +
-                            "___pos=0," +
-                            "loop={" +
-                                "last:false," +
-                                "first:true," +
-                                "index:1," +
-                                "index0:0," +
-                                "length:___length" +
-                            "}," +
-                            "forloop={" +
-                                "last:false," +
-                                "first:true," +
-                                "counter:1," +
-                                "counter0:0," +
-                                "length:___length" +
-                            "}," +
-                            value + "=null;" +
-                        "for(___alias in " + hash + "){" +
-                            "if(" + hash + "[___alias] &&" + hash + ".hasOwnProperty(___alias)){" +
-                                "if(___pos>0){" +
-                                    "loop.first=false;" +
-                                    "forloop.first=false;" +
-                                "}" +
-                                "if(___pos==___end){" +
-                                    "loop.last=true;" +
-                                    "forloop.last=true;" +
-                                "}" +
-                                value + "=" + hash + "[___alias];" +
-                                "___out+='"
-
-                );
-            }
-
-            // Replace {% endfor %}
-            tmpl = tmpl.replace(
-                /\{%[\s]*endfor[\s]*%\}/ig,
-                            "';" +
-                            "___pos++;" +
-                            "loop.index=___pos + 1;" +
-                            "loop.index0=___pos;" +
-                            "forloop.counter=___pos + 1;" +
-                            "forloop.counter0=___pos;" +
-                        "}" +
-                    "}" +
-                "})();___out+='"
-            );
-        }
-
-        return tmpl;
-    };
-
-    /**
-     * Parse {% filter %} and {% endfilter %}
-     *
-     * @static
-     * @private
-     *
-     * @this   {Tmpl}
-     * @param  {string}
-     * @param  {string}
-     * @param  {object}
-     * @return {string}
-     */
-    Tmpl._parse4filters = function(path, tmpl, data) {
-        var
-            end     = 0,
-            pos     = 0,
-            filter  = '',
-            filters = tmpl.match(/\{%[\s]*filter[\s]+[\d\w_\-]+[\s]*%\}/ig);
-
-        if (filters) {
-            end = filters.length;
-
-            for (pos = 0; pos < end; pos++) {
-                filter = filters[pos]
-                         .replace(/[^\d\w_\-]|filter/ig, '');
-
-                // Replace {% filter %}
-                if (Tmpl._filters[filter]) {
-                    tmpl = tmpl.replace(
-                        filters[pos],
-                        "';___out+=Tmpl._filters['" + filter + "']('"
-                    );
-                } else {
-                    tmpl = tmpl.replace(filters[pos], '');
-                }
-            }
-
-            // Replace {% endfilter %}
-            tmpl = tmpl.replace(
-                /\{%[\s]*endfilter[\s]*%\}/ig,
-                "');___out+='"
-            );
-        }
-
-        return tmpl;
-    };
-
-    /**
-     * Parse {% extends %}
-     *
-     * @static
-     * @private
-     *
-     * @this   {Tmpl}
-     * @param  {string}
-     * @param  {string}
-     * @param  {object}
-     * @return {string}
-     */
-    Tmpl._parse4extends = function(path, tmpl, data) {
-        return tmpl;
-    };
-
-    /**
-     * Parse {#, #}, {% comment %} and {% endcomment %}
-     *
-     * @static
-     * @private
-     *
-     * @this   {Tmpl}
-     * @param  {string}
-     * @param  {string}
-     * @param  {object}
-     * @return {string}
-     */
-    Tmpl._parse4comments = function(path, tmpl, data) {
-        tmpl = tmpl
-               .replace(/(\{#)|(\{%[\s]*comment[\s]*%\})/g, "';/*")
-               .replace(/(#\})|(\{%[\s]*endcomment[\s]*%\})/, "*/___out+='");
-
-        return tmpl;
-    }
-
-    /**
-     * Parse {% include %}
-     *
-     * @static
-     * @private
-     *
-     * @this   {Tmpl}
-     * @param  {string}
-     * @param  {string}
-     * @param  {object}
-     * @return {string}
-     */
-    Tmpl._parse4includes = function(path, tmpl, data) {
-        var
-            end      = 0,
-            pos      = 0,
-            alias    = '',
-            found    = '',
-            included = '',
-            includes = tmpl.match(/\{%[\s]*include[\s]+([\d\w_.\-"'\/]*)[\s]*?%\}/g);
-
-        if (includes) {
-            end = includes.length;
-
-            for (pos = 0; pos < end; pos++) {
-                found = includes[pos];
-                alias = found
-                        .replace(/(^\{%[\s]*include[\s]+)|([\s]*%\}$)/g, '')
-                        .replace(/["']/g, '');
-
-                // Replace {% include %}
-                if (Tmpl._tmpls[alias]) {
-                    tmpl = tmpl.replace(
-                        found,
-                        Tmpl._compile(
-                            alias,
-                            Tmpl._parse4blocks4includes(alias, Tmpl._tmpls[alias], data),
-                            data,
-                            true
-                        )
-                    );
-                }
-            }
-        }
-
-        return tmpl;
-    };
-
-    /**
-     * Parse {% if %}, {% elsif %}, {% else %} and {% endif %}
-     *
-     * @static
-     * @private
-     *
-     * @this   {Tmpl}
-     * @param  {string}
-     * @param  {string}
-     * @param  {object}
-     * @return {string}
-     */
-    Tmpl._parse4modals = function(path, tmpl, data) {
-        var
-            end   = 0,
-            pos   = 0,
-            cond  = '',
-            type  = '',
-            value = '',
-            ifs   = tmpl.match(/\{%[\s]*(if|elif)[\s]+([^%]*)[\s]*%\}/ig)
-            tmp   = [];
+            al0 = '',
+            al1 = '',
+            al2 = '',
+            al3 = '',
+            exp = '',
+            ifs = code.match(/\{%\s*(el)?if\s+(\\%|[^%])*%\}/g);
 
         if (ifs) {
-            end  = ifs.length;
+            for (al0 in ifs) {
+                exp = ifs[al0];
+                al1 = exp.replace(/(^\{%\s*|\s*%\}$)/g, '');
+                al1 = al1.split(/\s+/);
+                al2 = al1.shift();
+                al1 = al1.join(' ');
 
-            for (pos = 0; pos < end; pos++) {
-                cond  = ifs[pos];
-                tmp   = cond.
-                        replace(/^\{%[\s]*|[\s]*%\}$/g, '').
-                        split(/\s/);
-                type  = tmp.shift();
-                value = Tmpl._parse4secondary(tmp.join(' '));
-
-                if (type == 'elif') {
-                    // Replace {% elsif %}
-                    tmpl = tmpl.replace(
-                           cond,
-                           "';}else if(" + Tmpl._parse4secondary(value) + "){___out+='"
+                if (al2 == 'if') {
+                    code = code.replace(
+                        exp,
+                        '\'+(function(){if(' + al1 + '){return \''
                     );
-                } else {
-                    // Replace {% if %}
-                    tmpl = tmpl.replace(
-                        cond,
-                        "';if(" + Tmpl._parse4secondary(value) + "){___out+='"
+                } else if (al2 == 'elif') {
+                    code = code.replace(
+                        exp,
+                        '\';}else if(' + al1 + '){return \''
                     );
                 }
             }
 
-            // Replace {% else %} and {% endif %}
-            tmpl = tmpl.
-                   replace(/\{%[\s]*else[\s]*%\}/ig,  "';}else{___out+='").
-                   replace(/\{%[\s]*endif[\s]*%\}/ig, "';}___out+='");
+            code = code.replace(
+                /\{%\s*else\s*%\}/g,
+                '\';}else{return \''
+            );
+
+            code = code.replace(
+                /\{%\s*endif\s*%\}/g,
+                '\';}})()+\''
+            );
         }
 
-        return tmpl;
-    };
-
-    /**
-     * Parse some secondary constructions
-     *
-     * @static
-     * @private
-     *
-     * @this   {Tmpl}
-     * @param  {string}
-     * @return {string}
-     */
-    Tmpl._parse4secondary = function(str) {
-        return str.
-               replace(/\.(\d+)/, '[$1]').
-               replace(/[\s]*and[\s]+/ig, '&&').
-               replace(/[\s]*not[\s]+/ig, '!').
-               replace(/[\s]*is[\s]+/ig, '==').
-               replace(/[\s]*eq[\s]+/ig, '==').
-               replace(/[\s]*ne[\s]+/ig, '!=').
-               replace(/[\s]*or[\s]+/ig,  '||');
+        return code;
     }
 
-    return Tmpl;
-})();
+    /**
+     * {% for %} replacement
+     *
+     * @private
+     *
+     * @param {string} code
+     *
+     * @return {string}
+     */
+    JST.$._fors = function(code) {
+        var
+            al0  = '',
+            al1  = '',
+            al2  = '',
+            al3  = '',
+            exp  = '',
+            fors = code.match(/\{%\s*for\s+[\d\w]*(,\s*[\d\w]*)?\s+in\s+[\d\w.]*\s*%\}/g);
+
+        if (fors) {
+            for (al0 in fors) {
+                exp = fors[al0];
+                al1 = exp.replace(/(^\{%\s*for\s*|\s*%\}$)/g, '');
+                al1 = al1.split(/\s+/g);
+                al2 = al1.shift();
+
+                if (al2.match(/,$/g)) {
+                    al2 = al2.replace(/,$/, '');
+                    al3 = al1.shift();
+                } else if (al2.match(/,/g)) {
+                    al2 = al2.split(/,/g);
+                    al3 = al2.shift();
+                    al2 = al2[0];
+                }
+
+                al1.shift();
+                al1 = al1.join(' ');
+
+                JST._.vars[al2] = null;
+
+                code = code.replace(
+                    exp,
+                    '\'+(function(){' +
+                        'var ' +
+                            'loop={' +
+                                'index:0,' +
+                                'index0:0,' +
+                                'key:\'\',' +
+                                'code:\'\'' +
+                            '};' +
+                        'if(' + al1 + ' instanceof Array){' +
+                            'loop.last=false;' +
+                            'loop.first=true;' +
+                            'loop.lengh=' + al1 + '.length;' +
+                        '}' +
+                        'for(loop.key in ' + al1 + '){' +
+                            (al3 ? 'var ' + al3 + '=loop.key;' : '') +
+                            'var ' + al2 + '=' + al1 + '[loop.key];' +
+                            'loop.index0=loop.index;' +
+                            'loop.index++;' +
+                            'if(loop.length){' +
+                                'loop.last=loop.index==loop.length?' +
+                                           'true:' +
+                                           'false;' +
+                                'loop.first=loop.index==1?' +
+                                            'true:' +
+                                            'false;' +
+                            '}' +
+                            'loop.code+=\''
+                );
+            }
+
+            code = code.replace(
+                /\{%\s*endfor\s*%\}/g,
+                '\';}return loop.code;})()+\''
+            );
+        }
+
+        return code;
+    }
+
+    /**
+     * {{ variable }} replacement
+     *
+     * @private
+     *
+     * @param {string} code
+     *
+     * @return {string}
+     */
+    JST.$._vars = function(code) {
+        var
+            al0  = '',
+            al1  = '',
+            exp  = '',
+            vars = code.match(/\{\{\s*([\w\d_.\[\]]*)\s*\}\}/g);
+
+        if (vars) {
+            for (al0 in vars) {
+                exp = vars[al0];
+                al1 = exp.replace(/(\{\{\s*|\s*?\}\})/g, '');
+
+                code = code.replace(
+                    exp,
+                    '\'+' + al1 + '+\''
+                );
+            }
+        }
+
+        return code;
+    }
+
+
+    /**
+     * {% with %} replacement
+     *
+     * @private
+     *
+     * @param {string} code
+     *
+     * @return {string}
+     */
+    JST.$._sets = function(code) {
+        var
+            al0  = '',
+            al1  = '',
+            al2  = '',
+            exp  = '',
+            sets = code.match(/\{%\s*set\s+[\w\d]+\s*=\s*(\\%|[^%])+%\}/g);
+
+        code = 'return \'' + code;
+
+        if (sets) {
+            for (al0 in sets) {
+                exp = sets[al0];
+                al1 = exp.replace(/(^\{%\s*set\s+|\s*%\})/g, '');
+                al1 = al1.split(/=/g);
+                al2 = al1.shift();
+                al1 = al1.join('=');
+
+                code = 'var ' + al2 + ';' + code;
+                code = code.replace(
+                    exp,
+                    '\'+(' + al2 + '=' + al1 + ',\'\')+\''
+                );
+            }
+        }
+
+        return code;
+    }
+
+    /**
+     * {% include %} replacement
+     *
+     * @private
+     *
+     * @param {string} code
+     *
+     * @return {string}
+     */
+    JST.$._includes = function(code) {
+        var
+            al0  = '',
+            exp  = '',
+            incs = code.match(/\{%\s*include\s+([\w\d._\/]+)\s*?%\}/g);
+
+        if (incs) {
+            for (al0 in incs) {
+                exp  = incs[al0];
+                code = code.replace(
+                    exp,
+                    this.compile(
+                        exp.
+                        replace(/^\{%\s*include /, '').
+                        replace(/\s*%\}$/, '')
+                    )
+                );
+            }
+        }
+
+        return code;
+    }
+
+    /**
+     * {# comment #} replacement
+     *
+     * @private
+     *
+     * @param {string}
+     *
+     * @return {string}
+     */
+    JST.$._comments = function(code) {
+        return code
+               .replace(/(\{#)|(\{%[\s]*comment[\s]*%\})/g, "\'+/*")
+               .replace(/(#\})|(\{%[\s]*endcomment[\s]*%\})/, "*/\'\'+\'");
+    }
