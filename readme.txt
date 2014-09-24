@@ -19,7 +19,7 @@
         <!-- Single simple template without tags or filters -->
 
         <div id="target"></div>
-        <script type="text/javascript" src="i-tmpl.min.js"></script>
+        <script type="text/javascript" src="i-tmpl.js"></script>
         <script type="text/javascript">
             JTE.set(
                 'template',
@@ -68,7 +68,7 @@
 
     <code>
         <div id="target"></div>
-        <script type="text/javascript" src="i-tmpl.min.js"></script>
+        <script type="text/javascript" src="i-tmpl.js"></script>
         <script type="text/javascript">
             var
                 target = document.getElementById('target');
@@ -106,7 +106,7 @@
 
     <code>
         <div id="target"></div>
-        <script type="text/javascript" src="i-tmpl.min.js"></script>
+        <script type="text/javascript" src="i-tmpl.js"></script>
         <script type="text/javascript">
             var
                 path   = 'path/to/your/file.html',
@@ -131,7 +131,7 @@
 
     <code>
         <div id="target"></div>
-        <script type="text/javascript" src="i-tmpl.min.js"></script>
+        <script type="text/javascript" src="i-tmpl.js"></script>
         <script type="text/javascript">
             var
                 target = document.getElementById('target');
@@ -161,7 +161,7 @@
 
     <code>
         <div id="target"></div>
-        <script type="text/javascript" src="i-tmpl.min.js"></script>
+        <script type="text/javascript" src="i-tmpl.js"></script>
         <script type="text/javascript">
             var
                 target = document.getElementById('target');
